@@ -1,4 +1,3 @@
-import "https://deno.land/x/dotenv/load.ts";
 import { listenAndServe } from "https://deno.land/std@0.111.0/http/server.ts";
 
 const OPEN_WEATHER_MAP_API_URL = `https://api.openweathermap.org/data/2.5/weather`;
