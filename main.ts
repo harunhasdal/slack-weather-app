@@ -1,57 +1,12 @@
 import { listenAndServe } from "https://deno.land/std@0.111.0/http/server.ts";
+import { HookParameters, WeatherResponse } from "./types.ts";
 
 const OPEN_WEATHER_MAP_API_URL = `https://api.openweathermap.org/data/2.5/weather`;
 const OPEN_WEATHER_MAP_API_KEY = Deno.env.get("OPEN_WEATHER_MAP_API_KEY");
 const OPEN_WEATHER_MAP_ICONS_URL = `http://openweathermap.org/img/wn`;
 
-interface HookParameters {
-  token?: string;
-  team_id?: string;
-  team_domain?: string;
-  enterprise_id?: string;
-  enterprise_name?: string;
-  channel_id: string;
-  channel_name: string;
-  user_id: string;
-  user_name: string;
-  command: string;
-  text: string;
-  response_url: string;
-  trigger_id?: string;
-  api_app_id?: string;
-}
-
-interface WeatherResponse {
-  coord: { lon: number; lat: number };
-  weather: [{ id: number; main: string; description: string; icon: string }];
-  base: string;
-  main: {
-    temp: number;
-    feels_like: number;
-    temp_min: number;
-    temp_max: number;
-    pressure: number;
-    humidity: number;
-  };
-  visibility: number;
-  wind: { speed: number; deg: number };
-  clouds: { all: number };
-  dt: number;
-  sys: {
-    type: number;
-    id: number;
-    country: string;
-    sunrise: number;
-    sunset: number;
-  };
-  timezone: number;
-  id: number;
-  name: string;
-  cod: number;
-}
-
 async function handler(request: Request) {
-  console.log(request.headers.get("user-agent"));
+  console.log(`Serving request from`, request.headers.get("user-agent"));
   if (request.method !== "POST") {
     return new Response(null, {
       status: 405,
@@ -75,7 +30,6 @@ async function handler(request: Request) {
   const params = Object.fromEntries(formData) as unknown as HookParameters;
 
   const weatherRequestURL = `${OPEN_WEATHER_MAP_API_URL}?q=${params.text}&appid=${OPEN_WEATHER_MAP_API_KEY}&units=metric`;
-  console.log(weatherRequestURL);
   const weatherResponse = await fetch(weatherRequestURL, {
     headers: {
       accept: "application/json",
