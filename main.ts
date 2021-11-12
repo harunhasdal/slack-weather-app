@@ -1,11 +1,11 @@
 import { listenAndServe } from "https://deno.land/std@0.111.0/http/server.ts";
 import { HookParameters, WeatherResponse } from "./types.ts";
+import { weatherCommandHandler } from "./weather-command-handler.ts";
+import { crypto } from "https://deno.land/std@0.111.0/crypto/mod.ts";
 
-const OPEN_WEATHER_MAP_API_URL = `https://api.openweathermap.org/data/2.5/weather`;
-const OPEN_WEATHER_MAP_API_KEY = Deno.env.get("OPEN_WEATHER_MAP_API_KEY");
-const OPEN_WEATHER_MAP_ICONS_URL = `http://openweathermap.org/img/wn`;
+const SLACK_SIGNING_KEY = Deno.env.get("SLACK_SIGNING_KEY");
 
-async function handler(request: Request) {
+async function slackSlashCommandHandler(request: Request) {
   console.log(`Serving request from`, request.headers.get("user-agent"));
   if (request.method !== "POST") {
     return new Response(null, {
@@ -13,6 +13,22 @@ async function handler(request: Request) {
       statusText: "Method Not Allowed",
     });
   }
+  const requestSignature = request.headers.get("x-slack-signature") as string;
+  const textEncoder = new TextEncoder();
+  const verified = await crypto.subtle.verify?.(
+    { name: "HMAC" },
+    SLACK_SIGNING_KEY,
+    textEncoder.encode(requestSignature),
+    textEncoder.encode(JSON.stringify(request.body))
+  );
+
+  if (!verified) {
+    return new Response(null, {
+      status: 403,
+      statusText: "Invalid signature",
+    });
+  }
+
   const contentType = request.headers.get("content-type");
   if (
     !(
@@ -29,66 +45,8 @@ async function handler(request: Request) {
   const formData = await request.formData();
   const params = Object.fromEntries(formData) as unknown as HookParameters;
 
-  const weatherRequestURL = `${OPEN_WEATHER_MAP_API_URL}?q=${params.text}&appid=${OPEN_WEATHER_MAP_API_KEY}&units=metric`;
-  const weatherResponse = await fetch(weatherRequestURL, {
-    headers: {
-      accept: "application/json",
-    },
-  });
-
-  if (weatherResponse.ok) {
-    const weatherData =
-      (await weatherResponse.json()) as unknown as WeatherResponse;
-
-    const initialText = `*It's ${weatherData.main.temp} degrees, feels like ${weatherData.main.feels_like} degrees in ${weatherData.name}*"`;
-    const iconUrl = `${OPEN_WEATHER_MAP_ICONS_URL}/${weatherData.weather[0].icon}@2x.png`;
-    const detailText = `${weatherData.weather[0].main} - ${weatherData.weather[0].description}`;
-    const responseBlocks = {
-      blocks: [
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: initialText,
-          },
-        },
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: detailText,
-          },
-          accessory: {
-            type: "image",
-            image_url: iconUrl,
-            alt_text: `${weatherData.weather[0].main}`,
-          },
-        },
-      ],
-    };
-    return new Response(JSON.stringify(responseBlocks), {
-      headers: {
-        "content-type": "application/json",
-      },
-    });
-  }
-  const serviceUnavailableResponse = {
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: "Weather service unavailable",
-        },
-      },
-    ],
-  };
-  return new Response(JSON.stringify(serviceUnavailableResponse), {
-    headers: {
-      "content-type": "application/json",
-    },
-  });
+  return weatherCommandHandler(params);
 }
 
 console.log("Listening on http://localhost:8000");
-await listenAndServe(":8000", handler);
+await listenAndServe(":8000", slackSlashCommandHandler);
