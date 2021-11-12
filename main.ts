@@ -42,7 +42,7 @@ async function handler(request: Request) {
 
     const initialText = `*It's ${weatherData.main.temp} degrees, feels like ${weatherData.main.feels_like} degrees in ${weatherData.name}*"`;
     const iconUrl = `${OPEN_WEATHER_MAP_ICONS_URL}/${weatherData.weather[0].icon}@2x.png`;
-    const detailText = `![${weatherData.weather[0].main}](${iconUrl}) ${weatherData.weather[0].main} - ${weatherData.weather[0].description}`;
+    const detailText = `${weatherData.weather[0].main} - ${weatherData.weather[0].description}`;
     const responseBlocks = {
       blocks: [
         {
@@ -58,6 +58,11 @@ async function handler(request: Request) {
             type: "mrkdwn",
             text: detailText,
           },
+          accessory: {
+            type: "image",
+            image_url: iconUrl,
+            alt_text: `${weatherData.weather[0].main}`,
+          },
         },
       ],
     };
@@ -67,9 +72,21 @@ async function handler(request: Request) {
       },
     });
   }
-  return new Response(null, {
-    status: 500,
-    statusText: "Weather service unavailable",
+  const serviceUnavailableResponse = {
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: "Weather service unavailable",
+        },
+      },
+    ],
+  };
+  return new Response(JSON.stringify(serviceUnavailableResponse), {
+    headers: {
+      "content-type": "application/json",
+    },
   });
 }
 
